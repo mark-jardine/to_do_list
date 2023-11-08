@@ -1,6 +1,6 @@
 use std::io;
-use std::fs::{File, OpenOptions, read, metadata};
-use std::io::{BufRead, BufReader, Error, Lines, Write};
+use std::fs::{File, OpenOptions};
+use std::io::{BufRead, Error, Write};
 
 static FILE_PATH: &str = "todo_items.txt";
 
@@ -46,7 +46,7 @@ fn add_new_item(){
         .expect("Failed to open file");
 
     // Write text to file
-    let text_to_write = format!("{}\n",user_input.trim()); //append newline to user input
+    let _text_to_write = format!("{}\n",user_input.trim()); //append newline to user input
     //file.write_all(text_to_write.as_bytes()).expect("Failed to write new item to todo_items.txt.");
 
     use std::io::Write;
@@ -55,7 +55,7 @@ fn add_new_item(){
 }
 
 fn view_items_list(){
-    let mut items: Vec<String> = read_items_from_file();
+    let items: Vec<String> = read_items_from_file();
 
     check_for_empty_file();
 
