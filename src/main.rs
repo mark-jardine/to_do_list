@@ -1,6 +1,9 @@
 use std::io;
+use std::fs;
 use std::fs::{File, OpenOptions};
-use std::io::{BufRead, Error, Write};
+use std::io::{BufRead, Error};
+use tempfile::NamedTempFile;
+use std::io::Write;
 
 static FILE_PATH: &str = "todo_items.txt";
 
@@ -14,30 +17,29 @@ fn main() {
         match user_input.trim() {
             "1" => view_items_list(),
             "2" => add_new_item(),
-            "3" => match remove_item_from_list(){
-                Ok( () ) => {},
-                Err(e) => eprintln!("Error {}",e),
+            "3" => match remove_item_from_list() {
+                Ok(()) => {}
+                Err(e) => eprintln!("Error {}", e),
             },
             "4" => {
                 println!("Exiting...");
                 break;
-            },
+            }
 
             _ => println!("Expected a value from 1-4, try again.")
         }
-    };
+    }
 }
 
-fn add_new_item(){
+fn add_new_item() {
     println!("Type the name of the task(:b to go back)");
     let mut user_input = String::new();
     io::stdin().read_line(&mut user_input).expect("Could not read user input.");
-    //If the user wants to go back
+
     if user_input.trim() == ":b" {
         return;
     }
 
-    // Otherwise, write the new item to the file
     // Open the file in append mode, or create it if it doesn't exist
     let mut file = OpenOptions::new()
         .create(true)
@@ -45,96 +47,99 @@ fn add_new_item(){
         .open(FILE_PATH)
         .expect("Failed to open file");
 
-    // Write text to file with platform-agnostic line endings
-    let text_to_write = format!("{}\n", user_input.trim().to_string());
-    file.write_all(text_to_write.as_bytes()).expect("Failed to write new item to todo_items.txt.");
-    println!("{} has been saved to the to-do list.", user_input.trim())
+    writeln!(file, "{}", user_input.trim()).expect("Failed to write new item to todo_items.txt.");
+    println!("{} has been saved to the to-do list.", user_input.trim());
 }
 
-fn view_items_list(){
+fn view_items_list() {
     let items: Vec<String> = read_items_from_file();
 
-    if check_for_empty_file(){
+    if check_for_empty_file() {
         return;
     }
-    // Concatenate items into a single string with LF line endings
-    let items_str = items.join("\n* ");
-    println!("--------------------------");
-    println!("* {items_str}");
-    println!("--------------------------");
 
+    println!("--------------------------");
+    for item in items.iter() {
+        println!("* {}", item.replace("\"", ""));
+    }
+    println!("--------------------------");
 }
 
-fn remove_item_from_list() -> Result<(), Error>{
+fn remove_item_from_list() -> Result<(), Error> {
     let mut items = read_items_from_file();
 
     if check_for_empty_file() {
-        return Ok(())
+        return Ok(());
     }
 
     for (index, item) in items.iter().enumerate() {
         println!("{}: {}", index, item);
     }
 
-    // Get user input
     println!("Type the index of the task you wish to remove.(:b to go back)");
     let mut user_input = String::new();
     io::stdin().read_line(&mut user_input).expect("Could not read user input.");
 
-    // If the user wants to go back
     if user_input.trim() == ":b" {
-       return Ok( () );
+        return Ok(());
     }
 
-    if let Ok(index) = user_input.trim().parse::<usize>(){
+    if let Ok(index) = user_input.trim().parse::<usize>() {
         if index < items.len() {
-            // Remove selected item
             items.remove(index);
 
-            // Write the modified list back to the file
-            std::fs::write(FILE_PATH, items.join("\n"))?;
+            let mut temp_file = NamedTempFile::new()?;
+            for item in items.iter() {
+                writeln!(temp_file, "{}", item)?;
+            }
+
+            let temp_path = temp_file.into_temp_path();
+            fs::rename(temp_path, FILE_PATH)?;
             println!("Task removed successfully.");
             return Ok(());
+        } else {
+            return Err(Error::new(
+                io::ErrorKind::InvalidInput,
+                "Invalid input. Please enter a valid index.",
+            ));
         }
-        else{
-            return Err(Error::new(io::ErrorKind::InvalidInput,"Invalid input. Please enter a valid index.",));
-        }
-    }
-    else {
-        return Err(Error::new(io::ErrorKind::InvalidInput,"Invalid input. Please enter a valid index.",));
+    } else {
+        return Err(Error::new(
+            io::ErrorKind::InvalidInput,
+            "Invalid input. Please enter a valid index.",
+        ));
     }
 }
 
-fn read_items_from_file() -> Vec<String>{
+fn write_items_to_file(items: &Vec<String>) -> Result<(), Error> {
+    let content = items.join("\n");
+    std::fs::write(FILE_PATH, content)?;
+    Ok(())
+}
+
+fn read_items_from_file() -> Vec<String> {
     let mut items = Vec::new();
 
-    match File::open(FILE_PATH){
-        Ok(file) =>{
+    match File::open(FILE_PATH) {
+        Ok(file) => {
             let reader = io::BufReader::new(file);
 
-            for line in reader.lines(){
-                if let Ok(line) = line{
+            for line in reader.lines() {
+                if let Ok(line) = line {
                     items.push(line);
                 }
             }
         },
         Err(e) => eprintln!("Error: {}", e)
-     }
-
+    }
 
     items
 }
 
-fn check_for_empty_file() -> bool{
-    let file_empty: bool = is_file_empty(FILE_PATH);
-    if file_empty {
-        // No lines in the file
-        println!("--------------------------");
-        println!("No to-do items in the list.");
-        println!("--------------------------");
-    }
-    file_empty
+fn check_for_empty_file() -> bool {
+    is_file_empty(FILE_PATH)
 }
+
 fn is_file_empty(file_path: &str) -> bool {
     if let Ok(metadata) = std::fs::metadata(file_path) {
         metadata.len() == 0
