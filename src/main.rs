@@ -45,33 +45,32 @@ fn add_new_item(){
         .open(FILE_PATH)
         .expect("Failed to open file");
 
-    // Write text to file
-    let _text_to_write = format!("{}\n",user_input.trim()); //append newline to user input
-    //file.write_all(text_to_write.as_bytes()).expect("Failed to write new item to todo_items.txt.");
-
-    use std::io::Write;
-    writeln!(file, "{}", user_input.trim()).expect("Failed to write new item to todo_items.txt.");
-    println!("{} has been saved to the to-do list.",user_input.trim())
+    // Write text to file with platform-agnostic line endings
+    let text_to_write = format!("{}\n", user_input.trim().to_string());
+    file.write_all(text_to_write.as_bytes()).expect("Failed to write new item to todo_items.txt.");
+    println!("{} has been saved to the to-do list.", user_input.trim())
 }
 
 fn view_items_list(){
     let items: Vec<String> = read_items_from_file();
 
-    check_for_empty_file();
-
-    println!("--------------------------");
-    for item in items.iter() {
-        //Remove quotation marks from item
-        println!("* {}", item.replace("\"", ""));
+    if check_for_empty_file(){
+        return;
     }
+    // Concatenate items into a single string with LF line endings
+    let items_str = items.join("\n* ");
+    println!("--------------------------");
+    println!("* {items_str}");
     println!("--------------------------");
 
 }
 
-fn remove_item_from_list() -> Result<(), io::Error>{
+fn remove_item_from_list() -> Result<(), Error>{
     let mut items = read_items_from_file();
 
-    check_for_empty_file();
+    if check_for_empty_file() {
+        return Ok(())
+    }
 
     for (index, item) in items.iter().enumerate() {
         println!("{}: {}", index, item);
@@ -126,14 +125,15 @@ fn read_items_from_file() -> Vec<String>{
     items
 }
 
-fn check_for_empty_file(){
-    if is_file_empty(FILE_PATH){
+fn check_for_empty_file() -> bool{
+    let file_empty: bool = is_file_empty(FILE_PATH);
+    if file_empty {
         // No lines in the file
         println!("--------------------------");
         println!("No to-do items in the list.");
         println!("--------------------------");
-        return;
     }
+    file_empty
 }
 fn is_file_empty(file_path: &str) -> bool {
     if let Ok(metadata) = std::fs::metadata(file_path) {
